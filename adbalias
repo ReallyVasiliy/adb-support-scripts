@@ -1,0 +1,60 @@
+#!/bin/bash
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]] 
+then 
+	echo "This script will alias adb to always use the following device:"
+else 
+	echo "ERROR: This script must be sourced!"
+	echo "Try this: source ${BASH_SOURCE[0]}"
+	exit
+fi
+
+
+DEV=$(`which adb` devices -l 2>&1 | tail -n +2 | sed '/^$/d')
+if [ -z "$DEV" ]
+then
+   echo "ERROR: No connected devices." >&2
+   return
+fi
+N=$(echo "$DEV" | wc -l | sed 's/ //g')
+
+case $N in
+1)
+   D=$DEV
+   ;;
+
+*)
+   OLDIFS=$IFS
+   IFS="
+"
+   PS3="Select the device to use, <Q> to quit: "
+   select D in "CLEAR ALIAS" $DEV
+   do
+      [ "$REPLY" = 'q' -o "$REPLY" = 'Q' ] && exit 2
+      [ -n "$D" ] && break
+   done
+
+   IFS=$OLDIFS
+   ;;
+esac
+
+if [ -z "$D" ]
+then
+   echo "ERROR: target device coulnd't be determined" >&2
+   exit 1
+fi
+
+SELDEV=$(echo ${D} | sed 's/ .*$//')
+DEVNAME=$(echo ${D} | awk '{print $5}' | awk -F':' '{print $2}')
+
+
+if [ "CLEAR ALIAS" = "$D" ]
+then
+	type adb
+	echo "Removing alias for adb"
+	unalias adb
+else
+	echo "Creating adb alias to $DEVNAME ($SELDEV)."
+	echo "To remove the alias, simply run 'unalias adb' or select option (1) in this script."
+	alias adb="adb -s $SELDEV"
+	echo "Done."
+fi
